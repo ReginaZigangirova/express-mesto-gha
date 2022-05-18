@@ -45,7 +45,7 @@ const createUser = (req, res) => {
 };
 
 // обновляет профиль
-const updateProfile = (req, res) => {
+const updateUser = (req, res) => {
   const { name, about } = req.body;
   User.findByIdAndUpdate(req.user._id, { name, about }, {
     new: true,
@@ -96,6 +96,6 @@ module.exports = {
   getUsers,
   getUser,
   createUser,
-  updateProfile,
+  updateUser,
   updateAvatar,
 };
