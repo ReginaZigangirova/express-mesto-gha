@@ -3,8 +3,8 @@ const User = require('../models/user');
 // возвращает всех пользователей
 const getUsers = (_, res) => {
   User.find({})
-    .then((users) => {
-      res.status(200).send(users);
+    .then((user) => {
+      res.status(200).send(user);
     })
     .catch(() => {
       res.status(500).send({ message: 'Ошибка по умолчанию' });
