@@ -1,4 +1,33 @@
+const bcrypt = require('bcryptjs');
 const User = require('../models/user');
+// создаёт пользователя
+const createUser = (req, res) => {
+  const {
+    name,
+    about,
+    avatar,
+    email,
+    password,
+  } = req.body;
+  if (!email || !password) {
+    res.status(400).send({ message: 'не передан email или пароль' });
+    return;
+  }
+  bcrypt.hash(password, 10).then((hash) => User.create({
+    name,
+    about,
+    avatar,
+    email,
+    password: hash,
+  })
+    .then(() => res.status(200).send({ message: 'пользователь создан' }))
+    .catch((err) => {
+      if (err.code === 11000) {
+        return res.status(409).send({ message: 'такой email уже занят' });
+      }
+      return res.status(500).send({ message: 'ошибка по умолчанию' });
+    }));
+};
 
 // возвращает всех пользователей
 const getUsers = (_, res) => {
@@ -26,21 +55,6 @@ const getUser = (req, res) => {
         return res.status(400).send({ message: 'Некорректный id при создании пользователя' });
       }
       return res.status(500).send({ message: 'Ошибка по умолчанию' });
-    });
-};
-
-// создаёт пользователя
-const createUser = (req, res) => {
-  const { name, about, avatar } = req.body;
-  User.create({ name, about, avatar })
-    .then((user) => {
-      res.status(200).send(user);
-    })
-    .catch((err) => {
-      if (err.name === 'ValidationError') {
-        return res.status(400).send({ message: 'Переданы некорректные данные при создании пользователя' });
-      }
-      return res.ststus(500).send({ message: 'Ошибка по умолчанию' });
     });
 };
 
