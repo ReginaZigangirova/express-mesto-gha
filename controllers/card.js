@@ -1,19 +1,21 @@
 const Card = require('../models/card');
-
+const InvalidRequest = require('../errors/InvalidRequest');
+const NotFound = require('../errors/NotFound');
+const ForbiddenError = require('../errors/ForbiddenError');
 // возвращает все карточки
-const getCards = (req, res) => {
+const getCards = (req, res, next) => {
   Card.find({})
     .populate('owner')
     .then((card) => {
-      res.status(200).send(card);
+      res.send(card);
     })
-    .catch(() => {
-      res.status(500).send({ message: 'Ошибка по умолчанию' });
+    .catch((err) => {
+      next(err);
     });
 };
 
 // создаёт карточку
-const createCard = (req, res) => {
+const createCard = (req, res, next) => {
   const { name, link } = req.body;
   Card.create({ name, link, owner: req.user._id })
     .then((card) => {
@@ -21,32 +23,41 @@ const createCard = (req, res) => {
     })
     .catch((err) => {
       if (err.name === 'ValidationError') {
-        return res.status(400).send({ message: 'Переданы некорректные данные при создании карточки' });
+        next(new InvalidRequest('переданы некорректные данные при создании карточки'));
+        return;
       }
-      return res.status(500).send({ message: 'Ошибка по умолчанию' });
+      next(err);
     });
 };
 
 // удаляет карточку по идентификатору
-const deleteCard = (req, res) => {
-  Card.findByIdAndRemove(req.params.cardId)
+const deleteCard = (req, res, next) => {
+  Card.findById(req.params.cardId)
     .then((card) => {
       if (!card) {
-        res.status(404).send({ message: 'Карточка не найдена' });
+        throw new NotFound('карточка не найдена');
+      }
+      if (req.user._id === card.owner.toString()) {
+        Card.findByIdAndRemove(req.params.cardId)
+          .then(() => {
+            res.send({ data: card });
+          })
+          .catch((err) => {
+            if (err.name === 'CastError') {
+              next(new InvalidRequest('некорректный id'));
+              return;
+            }
+            next(err);
+          });
         return;
       }
-      res.status(200).send(card);
+      throw new ForbiddenError('невозможно удалить карту других пользователей');
     })
-    .catch((err) => {
-      if (err.kind === 'ObjectId') {
-        return res.status(400).send({ message: 'Некорректный id' });
-      }
-      return res.status(500).send({ message: 'Ошибка по умолчанию' });
-    });
+    .catch((err) => next(err));
 };
 
 // лайк
-const addLike = (req, res) => {
+const addLike = (req, res, next) => {
   Card.findByIdAndUpdate(
     req.params.cardId,
     { $addToSet: { likes: req.user._id } }, // добавить _id в массив, если его там нет
@@ -54,22 +65,22 @@ const addLike = (req, res) => {
   )
     .then((card) => {
       if (!card) {
-        res.status(404).send({ message: 'Передан несуществующий _id карточки.' });
+        next(new NotFound('передан несуществующий id карточки'));
         return;
       }
-      res.status(200).send(card);
+      res.send(card);
     })
     .catch((err) => {
       if (err.name === 'CastError') {
-        res.status(400).send({ message: 'Некорректный id' });
+        next(new InvalidRequest('некорректный id'));
         return;
       }
-      res.status(500).send({ message: 'Ошибка по умолчанию' });
+      next(err);
     });
 };
 
 // дизлайк
-const removeLike = (req, res) => {
+const removeLike = (req, res, next) => {
   Card.findByIdAndUpdate(
     req.params.cardId,
     { $pull: { likes: req.user._id } }, // убрать _id из массива
@@ -77,17 +88,17 @@ const removeLike = (req, res) => {
   )
     .then((card) => {
       if (!card) {
-        res.status(404).send({ message: 'Передан несуществующий _id карточки' });
+        next(new NotFound('передан несуществующий id карточки'));
         return;
       }
-      res.status(200).send(card);
+      res.send(card);
     })
     .catch((err) => {
       if (err.name === 'CastError') {
-        res.status(400).send({ message: 'Некорректный id' });
+        next(new InvalidRequest('некорректный id'));
         return;
       }
-      res.status(500).send({ message: 'Ошибка по умолчанию.' });
+      next(err);
     });
 };
 module.exports = {
